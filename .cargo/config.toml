@@ -1,0 +1,5 @@
+[alias]
+# 让 cargo b 强制运行 Clippy 并 deny 所有警告
+b = ["clippy", "--all-targets", "--", "-D", "warnings"]
+# 可选：更完整的版本（包含所有 feature 和 release）
+br = ["clippy", "--all-targets", "--all-features", "--release", "--", "-D", "warnings"]
