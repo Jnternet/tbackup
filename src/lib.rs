@@ -177,10 +177,12 @@ macro_rules! fl {
 /// # 参数
 /// - `source_path`: 要打包的文件/目录路径
 /// - `tar_gz_path`: 生成的 .tar.gz 文件路径
-pub fn create_tar_gz(source_path: &str, tar_gz_path: &str) -> anyhow::Result<()> {
+pub fn create_tar_gz<P: AsRef<Path>>(source_path: P, tar_gz_path: P) -> anyhow::Result<()> {
+    let source_path = source_path.as_ref();
+    let tar_gz_path = tar_gz_path.as_ref();
     // 1. 创建输出的 .tar.gz 文件
     let file = File::create_new(tar_gz_path)?;
-    println!("创建输出文件: {}", tar_gz_path);
+    // println!("创建输出文件: {:?}", tar_gz_path);
 
     // 2. 创建 gzip 编码器（指定压缩级别，1=最快，9=最优）
     let gz_encoder = GzEncoder::new(file, Compression::best());
@@ -193,21 +195,21 @@ pub fn create_tar_gz(source_path: &str, tar_gz_path: &str) -> anyhow::Result<()>
     if source.is_dir() {
         // 添加整个目录（递归包含所有子文件/目录）
         tar_builder.append_dir_all(source.file_name().context("未能添加整个目录")?, source)?;
-        println!("添加目录: {}", source_path);
+        // println!("添加目录: {:?}", source_path);
     } else if source.is_file() {
         // 添加单个文件
         tar_builder.append_file(
             source.file_name().context("未能添加单个文件")?,
             &mut File::open(source)?,
         )?;
-        println!("添加文件: {}", source_path);
+        // println!("添加文件: {:?}", source_path);
     } else {
-        return Err(anyhow!("路径不可用: {}", source_path));
+        return Err(anyhow!("路径不可用: {}", source_path.display()));
     }
 
     // 5. 完成压缩并刷新所有数据到文件
     tar_builder.finish()?;
-    println!("打包完成！生成文件: {}", tar_gz_path);
+    // println!("打包完成！生成文件: {:?}", tar_gz_path);
 
     Ok(())
 }
@@ -317,8 +319,22 @@ mod tests {
 
     #[test]
     fn test_create_tar_gz() -> anyhow::Result<()> {
+        //创建临时文件夹
         let temp_dir = tempfile::tempdir()?;
         let bak_path = temp_dir.path().join("bak");
+        fs::create_dir(&bak_path)?;
+        //创建一些文件
+        let file1 = bak_path.join("backup1.bak");
+        fs::write(&file1, "old backup")?;
+        let file2 = bak_path.join("backup2.bak");
+        fs::write(&file2, "new backup")?;
+
+        let tmp_dst_dir = tempfile::tempdir()?;
+        let dst_path = tmp_dst_dir.path();
+        let file_name = "haha.tar.gz";
+        let file_path = dst_path.join(file_name);
+        create_tar_gz(bak_path.as_path(), file_path.as_path())?;
+        assert!(file_path.exists());
 
         todo!()
     }
