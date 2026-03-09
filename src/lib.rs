@@ -66,7 +66,7 @@ pub fn find_older_than<P: AsRef<Path>>(
 }
 ///计算单个文件的哈希值，如果不是文件则会报错
 pub fn compute_file_hash<P: AsRef<Path>>(file_path: P) -> anyhow::Result<String> {
-    let f = std::fs::OpenOptions::new().read(true).open(file_path)?;
+    let f = fs::OpenOptions::new().read(true).open(file_path)?;
     let mut reader = BufReader::new(f);
     let mut buf = vec![0u8; 4096];
     let mut hasher = sha2::Sha256::new();
@@ -142,7 +142,7 @@ pub fn delete_backup_files(mut v: Vec<DirEntry>) -> anyhow::Result<()> {
     // v.retain(|p| p.path().extension().is_some_and(|ext| ext == "gz"));
     //删除所有文件
     for d in v {
-        std::fs::remove_file(d.path())?;
+        fs::remove_file(d.path())?;
     }
     anyhow::Ok(())
 }
