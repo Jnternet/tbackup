@@ -22,8 +22,8 @@ fn run() -> anyhow::Result<()> {
             let source_path = PathBuf::from(source_path);
             let backup_path = var("BACKUP_PATH").context(fl!("Missing BACKUP_PATH variable."))?;
             let backup_path = PathBuf::from(backup_path);
-            let now = chrono::Local::now();
-            let s_now = now.format("%Y-%m-%d_%H-%M-%S").to_string();
+            let now = chrono::Utc::now();
+            let s_now = now.format("%Y-%m-%d_%H-%M-%SUtc").to_string();
             let file_name_prefix =
                 var("FILENAME_PREFIX").context(fl!("Missing FILENAME_PREFIX variable."))?;
             let file_name = format!("{}_{}.tar.gz", file_name_prefix, s_now);
