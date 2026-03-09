@@ -5,8 +5,8 @@ use std::path::PathBuf;
 use tbackup::*;
 fn main() -> anyhow::Result<()> {
     if let Err(e) = run() {
-        for ee in e.chain() {
-            eprintln!("{}", ee);
+        for ee in e.chain().enumerate() {
+            eprintln!("{}|{}", ee.0, ee.1);
         }
     }
     Ok(())
@@ -46,13 +46,9 @@ fn run() -> anyhow::Result<()> {
             let new_newest = find_newest_backup_file(backup_path.as_path())?
                 .context(fl!("cannot find backup file"))?;
             let new_hash = compute_file_hash(new_newest.path())?;
-            //检查超过七天的文件
-            let v = find_older_than(
-                backup_path,
-                chrono::Utc::now(),
-                Duration::seconds(60).to_std()?,
-            )?;
-            //将超过七天的最新的文件复制到长期备份
+            //检查超过一天的文件
+            let v = find_older_than(backup_path, chrono::Utc::now(), Duration::days(1).to_std()?)?;
+            //将超过一天的最新的文件复制到长期备份
             if let Some(vi) = &v {
                 backup_newest_in(vi)?;
             }
@@ -69,6 +65,6 @@ fn run() -> anyhow::Result<()> {
             delete_backup_files(files_need_delete)?;
         }
         //计时休眠
-        std::thread::sleep(std::time::Duration::from_secs(10));
+        std::thread::sleep(std::time::Duration::from_mins(34));
     }
 }
