@@ -1,4 +1,4 @@
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use chrono::Duration;
 use std::env::var;
 use std::path::PathBuf;
@@ -24,10 +24,13 @@ fn run() -> anyhow::Result<()> {
             let file_name = format!("{}_{}.tar.gz", file_name_prefix, s_now);
 
             //找到最新的备份文件
-            let old_newest = find_newest_backup_file(backup_path.as_path())?
-                .context(fl!("cannot find backup file"))?;
-            //计算其哈希值
-            let old_hash = compute_file_hash(old_newest.path())?;
+            let old_newest = find_newest_backup_file(backup_path.as_path())?;
+            //可能没有备份文件
+            let mut old_hash = None;
+            if let Some(on) = old_newest.clone() {
+                //当有时计算其哈希值
+                old_hash = Some(compute_file_hash(on.path())?);
+            }
             //备份一次
             backup_once(
                 source_path.as_path(),
@@ -39,18 +42,17 @@ fn run() -> anyhow::Result<()> {
                 .context(fl!("cannot find backup file"))?;
             let new_hash = compute_file_hash(new_newest.path())?;
             //检查超过七天的文件
-            let Some(v) = find_older_than(
+            let v = find_older_than(
                 backup_path,
                 chrono::Utc::now(),
-                Duration::seconds(10).to_std()?,
-            )?
-            else {
-                return Err(anyhow!(fl!("cannot find files older than 7 days")));
-            };
+                Duration::seconds(60).to_std()?,
+            )?;
             //收集所有需要删除的文件
-            let mut files_need_delete = v;
-            if new_hash == old_hash {
-                files_need_delete.push(old_newest)
+            let mut files_need_delete = v.unwrap_or(Vec::new());
+            if let Some(oh) = old_hash
+                && oh == new_hash
+            {
+                files_need_delete.push(old_newest.context(fl!("no old newest"))?)
             }
             //去重
             remove_duplicate(&mut files_need_delete);
@@ -58,6 +60,6 @@ fn run() -> anyhow::Result<()> {
             delete_backup_files(files_need_delete)?;
         }
         //计时休眠
-        std::thread::sleep(std::time::Duration::from_secs(5));
+        std::thread::sleep(std::time::Duration::from_secs(10));
     }
 }
