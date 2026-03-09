@@ -4,6 +4,9 @@ use std::env::var;
 use std::path::PathBuf;
 use tbackup::*;
 fn main() -> anyhow::Result<()> {
+    run()
+}
+fn run() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
     //循环重复备份并检查
     loop {
