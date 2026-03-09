@@ -31,7 +31,7 @@ pub fn find_older_than<P: AsRef<Path>>(
     bak_path: P,
     time: chrono::DateTime<Utc>,
     dur: Duration,
-) -> anyhow::Result<Vec<DirEntry>> {
+) -> anyhow::Result<Option<Vec<DirEntry>>> {
     if !bak_path.as_ref().is_dir() {
         return Err(anyhow!("{}{}", fl!(), bak_path.as_ref().display()));
     }
@@ -50,7 +50,10 @@ pub fn find_older_than<P: AsRef<Path>>(
         }
         ans.push(dir_entry);
     }
-    anyhow::Ok(ans)
+    if ans.is_empty() {
+        return Ok(None);
+    }
+    anyhow::Ok(Some(ans))
 }
 ///计算单个文件的哈希值，如果不是文件则会报错
 pub fn compute_file_hash<P: AsRef<Path>>(file_path: P) -> anyhow::Result<String> {
@@ -128,6 +131,7 @@ pub fn delete_backup_files(mut v: Vec<DirEntry>) -> anyhow::Result<()> {
     });
     //只保留后缀为.gz的文件
     v.retain(|d| d.path().extension().and_then(|ext| ext.to_str()) == Some("gz"));
+    // v.retain(|p| p.path().extension().is_some_and(|ext| ext == "gz"));
     //删除所有文件
     for d in v {
         std::fs::remove_file(d.path())?;
@@ -177,7 +181,11 @@ macro_rules! fl {
 /// # 参数
 /// - `source_path`: 要打包的文件/目录路径
 /// - `tar_gz_path`: 生成的 .tar.gz 文件路径
-pub fn create_tar_gz<P: AsRef<Path>>(source_path: P, tar_gz_path: P) -> anyhow::Result<()> {
+pub fn create_tar_gz<S, T>(source_path: S, tar_gz_path: T) -> anyhow::Result<()>
+where
+    S: AsRef<Path>,
+    T: AsRef<Path>,
+{
     let source_path = source_path.as_ref();
     let tar_gz_path = tar_gz_path.as_ref();
     // 1. 创建输出的 .tar.gz 文件
@@ -236,7 +244,7 @@ mod tests {
         let now = Utc::now();
         let dur = Duration::from_hours(24 * 7);
         let bak_path = "tmp/test_older_than";
-        let v = find_older_than(bak_path, now, dur).unwrap();
+        let v = find_older_than(bak_path, now, dur).unwrap().unwrap();
         let vp = v.iter().map(|d| d.path()).collect::<Vec<_>>();
         let p = r"tmp/test_older_than/musl-1.2.5.tar.gz";
         let ans = vec![Path::new(p)];
@@ -328,14 +336,18 @@ mod tests {
         fs::write(&file1, "old backup")?;
         let file2 = bak_path.join("backup2.bak");
         fs::write(&file2, "new backup")?;
+        let t1 = temp_dir.path().join("t1");
+        fs::create_dir(&t1)?;
+        // let file3 = t1.join("backup3.bak");
+        // fs::write(&file3, "new backup")?;
 
         let tmp_dst_dir = tempfile::tempdir()?;
         let dst_path = tmp_dst_dir.path();
         let file_name = "haha.tar.gz";
         let file_path = dst_path.join(file_name);
-        create_tar_gz(bak_path.as_path(), file_path.as_path())?;
+        create_tar_gz(temp_dir, file_path.as_path())?;
         assert!(file_path.exists());
-
-        todo!()
+        // fs::copy(file_path, "tmp/haha.tar.gz")?;
+        anyhow::Ok(())
     }
 }
