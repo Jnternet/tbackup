@@ -1,5 +1,6 @@
 use anyhow::{Context, anyhow};
 use chrono::Utc;
+use dotenv::var;
 use flate2::Compression;
 use flate2::write::GzEncoder;
 use sha2::Digest;
@@ -7,6 +8,7 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::time::SystemTime;
 use std::{
+    fs,
     io::{BufReader, Read},
     path::Path,
     time::Duration,
@@ -225,6 +227,29 @@ where
     tar_builder.finish()?;
     // println!("打包完成！生成文件: {:?}", tar_gz_path);
 
+    Ok(())
+}
+#[allow(clippy::unwrap_used)]
+pub fn backup_newest_in<V: AsRef<[DirEntry]>>(v: V) -> anyhow::Result<()> {
+    let v = v.as_ref();
+    if v.is_empty() {
+        return Err(anyhow::anyhow!(fl!("nothing to backup")));
+    }
+    let mut vm = Vec::with_capacity(v.len());
+    for d in v {
+        vm.push((d, d.metadata()?.modified()?));
+    }
+    vm.sort_by_key(|(_, time)| *time);
+    // safe unwrap: v is not empty
+    let latest = vm.last().unwrap();
+    let latest_path = latest.0.path();
+    let file_name = latest_path.file_name().context("cannot read file name")?;
+    let longterm_backup_path = Path::new(&var("LONGTERM_BACKUP_PATH")?).join(file_name);
+    fs::copy(latest_path, &longterm_backup_path).context(fl!(
+        "无法复制超时最新文件:{}|{}",
+        latest_path.display(),
+        longterm_backup_path.display()
+    ))?;
     Ok(())
 }
 #[cfg(test)]

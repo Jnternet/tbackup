@@ -4,7 +4,12 @@ use std::env::var;
 use std::path::PathBuf;
 use tbackup::*;
 fn main() -> anyhow::Result<()> {
-    run()
+    if let Err(e) = run() {
+        for ee in e.chain() {
+            eprintln!("{}", ee);
+        }
+    }
+    Ok(())
 }
 fn run() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
@@ -47,6 +52,10 @@ fn run() -> anyhow::Result<()> {
                 chrono::Utc::now(),
                 Duration::seconds(60).to_std()?,
             )?;
+            //将超过七天的最新的文件复制到长期备份
+            if let Some(vi) = &v {
+                backup_newest_in(vi)?;
+            }
             //收集所有需要删除的文件
             let mut files_need_delete = v.unwrap_or(Vec::new());
             if let Some(oh) = old_hash
