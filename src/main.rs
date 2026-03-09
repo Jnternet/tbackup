@@ -21,7 +21,8 @@ fn main() -> anyhow::Result<()> {
             let file_name = format!("{}_{}.tar.gz", file_name_prefix, s_now);
 
             //找到最新的备份文件
-            let old_newest = find_newest_backup_file(backup_path.as_path())?;
+            let old_newest = find_newest_backup_file(backup_path.as_path())?
+                .context(fl!("cannot find backup file"))?;
             //计算其哈希值
             let old_hash = compute_file_hash(old_newest.path())?;
             //备份一次
@@ -31,11 +32,15 @@ fn main() -> anyhow::Result<()> {
                 file_name.clone(),
             )?;
             //计算新备份哈希值
-            let new_newest = find_newest_backup_file(backup_path.as_path())?;
+            let new_newest = find_newest_backup_file(backup_path.as_path())?
+                .context(fl!("cannot find backup file"))?;
             let new_hash = compute_file_hash(new_newest.path())?;
             //检查超过七天的文件
-            let Some(v) =
-                find_older_than(backup_path, chrono::Utc::now(), Duration::days(7).to_std()?)?
+            let Some(v) = find_older_than(
+                backup_path,
+                chrono::Utc::now(),
+                Duration::seconds(10).to_std()?,
+            )?
             else {
                 return Err(anyhow!(fl!("cannot find files older than 7 days")));
             };
@@ -50,6 +55,6 @@ fn main() -> anyhow::Result<()> {
             delete_backup_files(files_need_delete)?;
         }
         //计时休眠
-        std::thread::sleep(std::time::Duration::from_hours(1));
+        std::thread::sleep(std::time::Duration::from_secs(5));
     }
 }

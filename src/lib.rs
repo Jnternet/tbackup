@@ -79,7 +79,7 @@ pub fn compute_file_hash<P: AsRef<Path>>(file_path: P) -> anyhow::Result<String>
     let h = hasher.finalize();
     anyhow::Ok(hex::encode(h))
 }
-pub fn find_newest_backup_file<P: AsRef<Path>>(bak_path: P) -> anyhow::Result<DirEntry> {
+pub fn find_newest_backup_file<P: AsRef<Path>>(bak_path: P) -> anyhow::Result<Option<DirEntry>> {
     let bak_path = bak_path.as_ref();
 
     // 1. 验证 bak 目录是否存在（提前失败，避免后续无意义遍历）
@@ -126,8 +126,7 @@ pub fn find_newest_backup_file<P: AsRef<Path>>(bak_path: P) -> anyhow::Result<Di
         }
     }
 
-    // 4. 处理边界情况：未找到任何文件
-    newest_entry.with_context(|| format!("No backup files found in directory: {:?}", bak_path))
+    Ok(newest_entry)
 }
 ///只删除后缀为.gz的文件
 pub fn delete_backup_files(mut v: Vec<DirEntry>) -> anyhow::Result<()> {
@@ -327,7 +326,7 @@ mod tests {
 
         // 调用函数并验证结果
         let newest_file = find_newest_backup_file(&bak_path)?;
-        assert_eq!(newest_file.path(), file2);
+        assert_eq!(newest_file.unwrap().path(), file2);
 
         Ok(())
     }
