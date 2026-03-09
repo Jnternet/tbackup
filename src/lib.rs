@@ -19,12 +19,19 @@ pub enum BackupError {
     #[error("目标不是文件夹:{0}")]
     NotFolder(String),
 }
-pub fn backup_once<P: AsRef<Path>>(src: P, dst: P, file_name: &str) -> anyhow::Result<()> {
+/// 格式：无前后`/`或`./`
+/// 即`tmp`是正确的`./tmp/`是错误的
+pub fn backup_once<S, D, N>(src: S, dst: D, file_name: N) -> anyhow::Result<()>
+where
+    S: AsRef<Path>,
+    D: AsRef<Path>,
+    N: AsRef<str>,
+{
     let src = src.as_ref();
     let dst = dst.as_ref();
+    let file_name = file_name.as_ref();
     let file_path = dst.join(file_name);
-
-    todo!()
+    create_tar_gz(src, &file_path)
 }
 ///给定一个日期和时间长度，找到所有在(日期 - 时间长度)之前的文件的信息
 pub fn find_older_than<P: AsRef<Path>>(
@@ -349,5 +356,12 @@ mod tests {
         assert!(file_path.exists());
         // fs::copy(file_path, "tmp/haha.tar.gz")?;
         anyhow::Ok(())
+    }
+    #[test]
+    fn test_backup_once() -> anyhow::Result<()> {
+        let back_path = r"items4tests\test_backup_once\musl-1.2.5";
+        let dst_path = "tmp/test_backup_once";
+        let file_name = "haha.tar.gz";
+        backup_once(back_path, dst_path, file_name)
     }
 }
