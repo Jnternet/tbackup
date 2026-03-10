@@ -31,9 +31,17 @@ where
 {
     let src = src.as_ref();
     let dst = dst.as_ref();
+
     let file_name = file_name.as_ref();
     let file_path = dst.join(file_name);
-    create_tar_gz(src, &file_path)
+
+    let tmp_name = file_name.to_string() + ".tmp";
+    let tmp_path = dst.join(tmp_name);
+
+    create_tar_gz(src, &tmp_path)?;
+    std::fs::rename(tmp_path, file_path)?;
+
+    anyhow::Ok(())
 }
 ///给定一个日期和时间长度，找到所有在(日期 - 时间长度)之前的文件的信息
 pub fn find_older_than<P: AsRef<Path>>(
@@ -130,15 +138,19 @@ pub fn find_newest_backup_file<P: AsRef<Path>>(bak_path: P) -> anyhow::Result<Op
 
     Ok(newest_entry)
 }
-///只删除后缀为.gz的文件
+///只删除后缀为.gz与.tmp的文件
 pub fn delete_backup_files(mut v: Vec<DirEntry>) -> anyhow::Result<()> {
     //只保留可用的文件
     v.retain(|d| match d.metadata() {
         Ok(m) => m.is_file(),
         Err(_) => false,
     });
-    //只保留后缀为.gz的文件
-    v.retain(|d| d.path().extension().and_then(|ext| ext.to_str()) == Some("gz"));
+    //只保留后缀为.gz与.tmp的文件
+    v.retain(|d| {
+        //
+        let e = d.path().extension().and_then(|ext| ext.to_str());
+        e == Some("gz") || e == Some("tmp")
+    });
     // v.retain(|p| p.path().extension().is_some_and(|ext| ext == "gz"));
     //删除所有文件
     for d in v {
@@ -383,9 +395,47 @@ mod tests {
     }
     #[test]
     fn test_backup_once() -> anyhow::Result<()> {
+        let tmp_dir = tempfile::tempdir()?;
+        let tmp_bak_path = tmp_dir.path().join("bak_once");
+        fs::create_dir(&tmp_bak_path)?;
         let back_path = r"items4tests\test_backup_once\musl-1.2.5";
-        let dst_path = "tmp/test_backup_once";
+        let dst_path = tmp_bak_path;
         let file_name = "haha.tar.gz";
         backup_once(back_path, dst_path, file_name)
+    }
+    #[test]
+    fn test_delete_tmp_bak_files() -> anyhow::Result<()> {
+        // 创建临时 bak 目录
+        let temp_dir = tempfile::tempdir()?;
+        let bak_path = temp_dir.path().join("bak");
+        fs::create_dir(&bak_path)?;
+
+        // 创建测试文件（不同后缀）
+        let file1 = bak_path.join("backup1.bak");
+        fs::write(&file1, "old backup")?;
+
+        let file2 = bak_path.join("backup2.gz");
+        fs::write(&file2, "new backup")?;
+
+        let file3 = bak_path.join("backup3.gz");
+        fs::write(&file3, "new backup")?;
+
+        let entries: Vec<DirEntry> = WalkDir::new(bak_path.clone())
+            .min_depth(1)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .collect();
+        let before = entries.len();
+        dbg!(&before);
+        delete_backup_files(entries)?;
+        let entries: Vec<DirEntry> = WalkDir::new(bak_path)
+            .min_depth(1)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .collect();
+        let after = entries.len();
+        dbg!(&after);
+        assert_eq!(after, 1);
+        Ok(())
     }
 }
